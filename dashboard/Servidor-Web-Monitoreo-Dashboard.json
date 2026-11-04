@@ -1,0 +1,236 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 3,
+      "properties": {
+        "markdown": "## Servidor web · monitoreo en tiempo real\nInstancia **i-REEMPLAZAR_POR_TU_INSTANCIA** (t3.micro) en la subred pública de la VPC del Módulo 6. Métricas estándar de EC2 cada **5 minutos** (monitoreo básico, sin costo). [Qué significa cada gráfico](https://github.com/MaCecilia92/cloudwatch-dashboard-monitoreo#qué-muestra-cada-widget)"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 3,
+      "width": 12,
+      "height": 7,
+      "properties": {
+        "title": "CPU del servidor web (%) · CPUUtilization",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "stat": "Average",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/EC2",
+            "CPUUtilization",
+            "InstanceId",
+            "i-REEMPLAZAR_POR_TU_INSTANCIA",
+            {
+              "label": "CPU promedio (%)",
+              "color": "#ff7f0e"
+            }
+          ],
+          [
+            "...",
+            {
+              "stat": "Maximum",
+              "label": "CPU máxima (%)",
+              "color": "#d62728"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100,
+            "label": "Porcentaje",
+            "showUnits": false
+          }
+        },
+        "annotations": {
+          "horizontal": [
+            {
+              "label": "Umbral de Auto Scaling (60 %)",
+              "value": 60,
+              "color": "#d62728"
+            },
+            {
+              "label": "Línea base t3.micro (10 %)",
+              "value": 10,
+              "color": "#2ca02c",
+              "fill": "below"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 3,
+      "width": 12,
+      "height": 7,
+      "properties": {
+        "title": "Tráfico de red (bytes cada 5 min) · NetworkIn / NetworkOut",
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/EC2",
+            "NetworkIn",
+            "InstanceId",
+            "i-REEMPLAZAR_POR_TU_INSTANCIA",
+            {
+              "label": "Entrada: lo que recibe el servidor",
+              "color": "#1f77b4"
+            }
+          ],
+          [
+            ".",
+            "NetworkOut",
+            ".",
+            ".",
+            {
+              "label": "Salida: lo que envía (páginas, archivos)",
+              "color": "#9467bd"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "Bytes",
+            "showUnits": false
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 10,
+      "width": 8,
+      "height": 5,
+      "properties": {
+        "title": "Créditos de CPU disponibles · CPUCreditBalance",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "stat": "Average",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/EC2",
+            "CPUCreditBalance",
+            "InstanceId",
+            "i-REEMPLAZAR_POR_TU_INSTANCIA",
+            {
+              "label": "Créditos acumulados",
+              "color": "#2ca02c"
+            }
+          ],
+          [
+            ".",
+            "CPUCreditUsage",
+            ".",
+            ".",
+            {
+              "label": "Créditos usados en el período",
+              "color": "#ff7f0e"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "Créditos",
+            "showUnits": false
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 10,
+      "width": 8,
+      "height": 5,
+      "properties": {
+        "title": "Chequeos de estado (0 = OK, 1 = falla)",
+        "view": "singleValue",
+        "region": "us-east-1",
+        "stat": "Maximum",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/EC2",
+            "StatusCheckFailed_System",
+            "InstanceId",
+            "i-REEMPLAZAR_POR_TU_INSTANCIA",
+            {
+              "label": "Sistema (hardware de AWS)"
+            }
+          ],
+          [
+            ".",
+            "StatusCheckFailed_Instance",
+            ".",
+            ".",
+            {
+              "label": "Instancia (sistema operativo)"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 10,
+      "width": 8,
+      "height": 5,
+      "properties": {
+        "title": "Paquetes de red por período",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          [
+            "AWS/EC2",
+            "NetworkPacketsIn",
+            "InstanceId",
+            "i-REEMPLAZAR_POR_TU_INSTANCIA",
+            {
+              "label": "Paquetes que entran"
+            }
+          ],
+          [
+            ".",
+            "NetworkPacketsOut",
+            ".",
+            ".",
+            {
+              "label": "Paquetes que salen"
+            }
+          ]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "label": "Paquetes",
+            "showUnits": false
+          }
+        }
+      }
+    }
+  ]
+}

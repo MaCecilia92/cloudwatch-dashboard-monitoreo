@@ -1,18 +1,27 @@
 AWSTemplateFormatVersion: '2010-09-09'   # Única versión válida del formato de plantilla (no es una fecha a actualizar)
-Description: 'Servidor web EC2 en una VPC + Dashboard de CloudWatch (CPU, red, creditos y chequeos de estado)'
+Description: 'Servidor web EC2 en una VPC + Dashboard de CloudWatch (CPU, red, creditos, chequeos de estado) + alarma de CPU'
 # Autora: Maria Cecilia Alegre
 #
 # Crea en un solo paso:
 #   - una VPC 10.0.0.0/16 con una subred publica 10.0.1.0/24 (como en el Modulo 6),
 #   - una EC2 t3.micro con Apache y un archivo de prueba para generar trafico,
-#   - el dashboard "Servidor-Web-Monitoreo-Dashboard" ya apuntando a esa instancia.
+#   - el dashboard "Servidor-Web-Monitoreo-Dashboard" ya apuntando a esa instancia,
+#   - una alarma de CloudWatch: CPU promedio > 60 % durante 2 periodos de 5 minutos,
+#     que avisa por un tema de SNS (y por correo, si se completa EmailAlertas).
 # COSTO: la EC2 cobra por hora mientras exista. Borrar el stack al terminar.
 
 Parameters:
+  EmailAlertas:
+    Type: String
+    Default: ''
+    Description: 'Opcional. Correo que recibe el aviso de la alarma (hay que confirmar la suscripcion desde ese correo)'
   AmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
     Description: Ultima AMI de Amazon Linux 2023
+
+Conditions:
+  ConEmail: !Not [!Equals [!Ref EmailAlertas, '']]
 
 Resources:
   Vpc:
@@ -110,6 +119,46 @@ Resources:
           head -c 20M /dev/urandom > /var/www/html/archivo-prueba.bin
           systemctl enable --now httpd
       Tags: [{ Key: Name, Value: servidor-web-monitoreo }]
+
+  # ---------------------------------------------------------------------------
+  # ALARMA: el dashboard muestra los datos; la alarma ACTUA sobre ellos.
+  # Pasa a ALARM si la CPU promedio supera 60 % en 2 periodos seguidos de
+  # 5 minutos (10 minutos sostenidos): asi un pico breve no genera falsas alarmas.
+  # Es el mismo umbral que usa el Auto Scaling de la Pre-entrega 3.
+  # ---------------------------------------------------------------------------
+  TemaAlertas:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: alertas-servidor-web
+      DisplayName: Alertas del servidor web
+
+  SuscripcionEmail:
+    Type: AWS::SNS::Subscription
+    Condition: ConEmail
+    Properties:
+      TopicArn: !Ref TemaAlertas
+      Protocol: email
+      Endpoint: !Ref EmailAlertas
+
+  AlarmaCpu:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: servidor-web-cpu-alta
+      AlarmDescription: CPU promedio mayor a 60 % durante 10 minutos. Revisar la carga o escalar.
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref InstanciaWeb
+      Statistic: Average
+      Period: 300                       # 5 min, igual que el monitoreo basico
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 60
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: missing         # sin datos (instancia apagada) no cambia el estado
+      AlarmActions: [!Ref TemaAlertas]  # aviso al entrar en ALARM
+      OKActions: [!Ref TemaAlertas]     # aviso cuando vuelve a OK
 
   # El cuerpo es el mismo JSON de dashboard/Servidor-Web-Monitoreo-Dashboard.json,
   # con el ID de la instancia completado automaticamente (${InstanciaWeb}).
@@ -351,11 +400,26 @@ Resources:
                   }
                 }
               }
+            },
+            {
+              "type": "alarm",
+              "x": 0,
+              "y": 15,
+              "width": 24,
+              "height": 2,
+              "properties": {
+                "title": "Estado de la alarma: CPU mayor a 60 % durante 10 minutos",
+                "alarms": [
+                  "${AlarmaCpu.Arn}"
+                ]
+              }
             }
           ]
         }
 
 Outputs:
+  AlarmaCpu:
+    Value: !Ref AlarmaCpu
   InstanciaId:
     Value: !Ref InstanciaWeb
   UrlServidor:

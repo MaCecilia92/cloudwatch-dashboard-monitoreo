@@ -18,32 +18,38 @@ La prueba se hizo el 4 de noviembre de 2026, entre las 23:10 y las 23:35 UTC (20
 | — | **Créditos usados**: ~10 por período · **Balance**: 0 | 2 vCPU al 100 % durante 5 minutos consumen 10 créditos (1 crédito = 1 vCPU al 100 % durante 1 minuto). La instancia era nueva y no tenía créditos acumulados: en modo *unlimited* (el valor por defecto de las t3), el excedente se cobra aparte, unos centavos en esta prueba. |
 | — | **Chequeos de estado**: 0 y 0 | La instancia y el hardware de AWS estuvieron sanos durante toda la prueba, incluso con la CPU al 100 %. |
 
-La definición que exporté de la consola (*Acciones → Ver o editar origen*) está en `dashboard/exportado-desde-aws.json`. Es idéntica a la plantilla del repositorio, con el ID real de la instancia.
+La definición que exporté de la consola (*Acciones → Ver o editar origen*) está en `dashboard/exportado-desde-aws.json`. Era idéntica a la plantilla del repositorio de ese momento, con el ID real de la instancia.
+
+> **Después de la prueba** se sumaron la **alarma de CPU** (con su widget de estado), el JSON comentado y el script de verificación con AWS CLI. Por eso la captura muestra 6 widgets y la plantilla actual tiene 7. Para probar la alarma, alcanza con desplegar la plantilla, correr `scripts/subir_cpu.sh` dos veces seguidas (unos 20 minutos de CPU alta) y mirar cómo el widget pasa de **OK** a **ALARM** y vuelve a **OK**.
 
 ## Contenido del repositorio
 
 | Ruta | Qué contiene |
 |---|---|
 | `dashboard/Servidor-Web-Monitoreo-Dashboard.json` | **Definición del dashboard** como plantilla (el mismo formato que exporta la consola en *Acciones → Ver o editar origen*) |
+| `dashboard/Servidor-Web-Monitoreo-Dashboard.comentado.jsonc` | La misma definición **con comentarios** que explican cada sección (solo para leer: CloudWatch no acepta comentarios) |
 | `dashboard/exportado-desde-aws.json` | La definición **exportada del dashboard real**, con el ID de la instancia de la prueba |
-| `infraestructura/servidor-y-dashboard.yaml` | CloudFormation: VPC, subred pública, EC2 con Apache y el dashboard, en un solo paso |
+| `infraestructura/servidor-y-dashboard.yaml` | CloudFormation: VPC, subred pública, EC2 con Apache, el dashboard y la alarma de CPU, en un solo paso |
 | `scripts/crear_dashboard.sh` | Crea el dashboard para una instancia que ya existe (verifica antes el ID y su VPC) |
 | `scripts/exportar_dashboard.sh` | Descarga la definición actual del dashboard desde AWS |
+| `scripts/verificar_dashboard.sh` | Verifica con AWS CLI que el dashboard desplegado coincide con el del repositorio, y muestra el estado y el historial de la alarma |
 | `scripts/generar_trafico.sh` / `.ps1` | Descarga un archivo de 20 MB varias veces para mover las métricas de red |
+| `scripts/generar_trafico_olas.sh` | Tráfico en «olas» durante 30 minutos (visitas chicas, pausa, descargas grandes) |
 | `scripts/subir_cpu.sh` | Lleva la CPU al 100 % durante 10 minutos (se ejecuta dentro de la instancia) |
 | `capturas/` | Capturas del dashboard con datos reales |
 
 ## Qué muestra cada widget
 
-| # | Widget | Tipo | Métrica (estadística) | Qué significa | Cómo leerlo |
-|---|---|---|---|---|---|
-| 1 | **CPU del servidor web (%)** | Línea | `CPUUtilization` (promedio y máximo) | Porcentaje de la capacidad de procesamiento que usa la instancia. Mide **qué tan "estresado"** está el servidor. | Si queda **más de 60 %** durante varios minutos (línea roja), hacen falta más instancias: es el umbral del Auto Scaling de la Pre-entrega 3. Si está siempre cerca de 0 %, la instancia está sobredimensionada. |
-| 2 | **Tráfico de red** | Área apilada | `NetworkIn` y `NetworkOut` (suma) | Bytes que **recibe** (pedidos de los visitantes) y que **envía** (páginas y archivos) la instancia en cada período de 5 minutos. | En un servidor web, la salida suele ser mucho mayor que la entrada. Al estar apiladas, la altura total es todo el tráfico. Para pasarlo a velocidad: `bytes × 8 ÷ 300 s` = bits por segundo. |
-| 3 | **Créditos de CPU** | Línea | `CPUCreditBalance` y `CPUCreditUsage` | La `t3.micro` es una instancia **con ráfagas**: tiene una línea base de 10 % de CPU y junta créditos cuando usa menos. Los gasta cuando necesita más. | Si el balance baja hasta cero de forma sostenida, la carga es mayor que la línea base: conviene una instancia más grande o escalar horizontalmente. |
-| 4 | **Chequeos de estado** | Número | `StatusCheckFailed_System` y `_Instance` (máximo) | **0 = OK, 1 = falla.** *Sistema*: problema del hardware o de la red de AWS. *Instancia*: problema del sistema operativo (por ejemplo, se quedó sin memoria). | Cualquier 1 es una alerta. Una falla de *sistema* se suele resolver deteniendo e iniciando la instancia (pasa a otro host). Una de *instancia* hay que revisarla en el servidor. |
-| 5 | **Paquetes de red** | Línea | `NetworkPacketsIn` y `NetworkPacketsOut` (suma) | Cantidad de paquetes, no de bytes. | Muchos paquetes con pocos bytes pueden indicar muchas conexiones chicas (o un ataque). Pocos paquetes con muchos bytes son descargas grandes. |
+| # | Widget | Tipo | Métrica (estadística) | Qué significa | Cómo leerlo | Documentación oficial |
+|---|---|---|---|---|---|---|
+| 1 | **CPU del servidor web (%)** | Línea | `CPUUtilization` (promedio y máximo) | Porcentaje de la capacidad de procesamiento que usa la instancia. Mide **qué tan "estresado"** está el servidor. | Si queda **más de 60 %** durante varios minutos (línea roja), hacen falta más instancias: es el umbral del Auto Scaling de la Pre-entrega 3. Si está siempre cerca de 0 %, la instancia está sobredimensionada. | [Métricas de EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html) |
+| 2 | **Tráfico de red** | Área apilada | `NetworkIn` y `NetworkOut` (suma) | Bytes que **recibe** (pedidos de los visitantes) y que **envía** (páginas y archivos) la instancia en cada período de 5 minutos. | En un servidor web, la salida suele ser mucho mayor que la entrada. Al estar apiladas, la altura total es todo el tráfico. Para pasarlo a velocidad: `bytes × 8 ÷ 300 s` = bits por segundo. | [Métricas de EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html) |
+| 3 | **Créditos de CPU** | Línea | `CPUCreditBalance` y `CPUCreditUsage` | La `t3.micro` es una instancia **con ráfagas**: tiene una línea base de 10 % de CPU y junta créditos cuando usa menos. Los gasta cuando necesita más. | Si el balance baja hasta cero de forma sostenida, la carga es mayor que la línea base: conviene una instancia más grande o escalar horizontalmente. | [Créditos de CPU](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-monitoring-cpu-credits.html) |
+| 4 | **Chequeos de estado** | Número | `StatusCheckFailed_System` y `_Instance` (máximo) | **0 = OK, 1 = falla.** *Sistema*: problema del hardware o de la red de AWS. *Instancia*: problema del sistema operativo (por ejemplo, se quedó sin memoria). | Cualquier 1 es una alerta. Una falla de *sistema* se suele resolver deteniendo e iniciando la instancia (pasa a otro host). Una de *instancia* hay que revisarla en el servidor. | [Chequeos de estado](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-system-instance-status-check.html) |
+| 5 | **Paquetes de red** | Línea | `NetworkPacketsIn` y `NetworkPacketsOut` (suma) | Cantidad de paquetes, no de bytes. | Muchos paquetes con pocos bytes pueden indicar muchas conexiones chicas (o un ataque). Pocos paquetes con muchos bytes son descargas grandes. | [Métricas de EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html) |
+| 6 | **Estado de la alarma** | Alarma | Alarma `servidor-web-cpu-alta` sobre `CPUUtilization` | Verde = **OK**, rojo = **ALARM** (la CPU promedio superó 60 % durante 2 períodos seguidos), gris = **datos insuficientes**. | El gráfico muestra lo que pasa; la alarma **avisa sola** cuando hay que actuar, sin que nadie esté mirando el dashboard. | [Alarmas de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ConsoleAlarms.html) |
 
-Arriba de todo hay un **widget de texto** que identifica la instancia y enlaza a esta explicación.
+Arriba de todo hay un **widget de texto** que identifica la instancia y enlaza a esta explicación. El formato completo del JSON está explicado en [Dashboard Body Structure and Syntax](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/CloudWatch-Dashboard-Body-Structure.html) y, comentado línea por línea, en `dashboard/Servidor-Web-Monitoreo-Dashboard.comentado.jsonc`.
 
 ### Cosas importantes para interpretar los datos
 
@@ -51,6 +57,20 @@ Arriba de todo hay un **widget de texto** que identifica la instancia y enlaza a
 - **La memoria RAM y el disco no aparecen.** EC2 mide la instancia "desde afuera", con lo que ve el hipervisor. Para ver memoria y uso del disco hay que instalar el **agente de CloudWatch** dentro de la instancia.
 - **Métricas vacías:** si la instancia está detenida, no se publican datos y el gráfico queda en blanco.
 - **Instancia correcta:** el script `crear_dashboard.sh` muestra el ID, el estado, la VPC y el nombre de la instancia antes de crear el dashboard. Así se evita graficar la instancia equivocada.
+
+## Relación con el AWS Well-Architected Framework
+
+Este dashboard aplica sobre todo el pilar de **Excelencia operativa** (*Operational Excellence*), que pide **observar** la carga de trabajo para operarla con datos:
+
+| Buena práctica | Cómo la aplica este repositorio |
+|---|---|
+| [OPS04-BP01 Identificar indicadores clave (KPI)](https://docs.aws.amazon.com/pdfs/wellarchitected/latest/operational-excellence-pillar/wellarchitected-operational-excellence-pillar.pdf) | Se eligieron pocas métricas que responden preguntas concretas: ¿está exigido? (CPU), ¿cuánto tráfico atiende? (red), ¿le alcanza la capacidad? (créditos), ¿está sano? (chequeos de estado). |
+| [OPS08-BP01 Analizar las métricas de la carga de trabajo](https://docs.aws.amazon.com/pdfs/wellarchitected/latest/operational-excellence-pillar/wellarchitected-operational-excellence-pillar.pdf) | El README explica cómo leer cada gráfico, y la sección de resultados interpreta los datos reales de las pruebas. |
+| [OPS08-BP04 Crear alertas procesables](https://docs.aws.amazon.com/wellarchitected/latest/framework/ops_workload_observability_create_alerts.html) | La alarma `servidor-web-cpu-alta` se dispara solo si la CPU pasa de 60 % durante 10 minutos (no ante un pico suelto) y avisa por SNS con una indicación de qué hacer. |
+| [OPS08-BP05 Crear dashboards](https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_workload_observability_create_dashboards.html) | Un único panel con títulos y etiquetas en lenguaje claro, líneas de referencia (60 % y 10 %) y el estado de la alarma a la vista. |
+| Operaciones como código | El dashboard y la alarma se crean con CloudFormation, y `verificar_dashboard.sh` confirma que lo desplegado es igual al repositorio. |
+
+También aporta a otros pilares: **Fiabilidad** (los chequeos de estado detectan fallas del hardware o del sistema operativo), **Eficiencia del rendimiento** (los créditos muestran si el tipo de instancia alcanza) y **Optimización de costos** (una CPU siempre baja indica que la instancia es más grande de lo necesario).
 
 ## Cómo crearlo
 
@@ -76,10 +96,22 @@ Para cargar directamente el dashboard completo de este repositorio: *Actions →
 aws cloudformation deploy \
   --template-file infraestructura/servidor-y-dashboard.yaml \
   --stack-name monitoreo-servidor-web \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_IAM \
+  --parameter-overrides EmailAlertas=tu-correo@ejemplo.com   # opcional
 ```
 
-Las salidas del stack dan la URL del servidor y la del dashboard.
+Las salidas del stack dan la URL del servidor y la del dashboard. Si se completa `EmailAlertas`, AWS manda un correo para **confirmar la suscripción**. Hasta que se confirma, la alarma cambia de estado igual, pero no llega ningún aviso.
+
+### Verificar lo desplegado con AWS CLI
+
+Desde **AWS CloudShell** (el ícono `>_` de la consola), que ya trae AWS CLI y las credenciales:
+
+```bash
+git clone https://github.com/MaCecilia92/cloudwatch-dashboard-monitoreo && cd cloudwatch-dashboard-monitoreo
+bash scripts/verificar_dashboard.sh monitoreo-servidor-web us-east-1
+```
+
+El script compara el JSON desplegado con el del repositorio (normalizados, para que no importen los espacios ni el orden de las claves) e informa si coinciden los widgets. También muestra el estado de la alarma y sus últimos cambios.
 
 ## Simular actividad
 
@@ -99,6 +131,7 @@ Las salidas del stack dan la URL del servidor y la del dashboard.
 ## Costos y limpieza
 
 - **Dashboard:** la capa gratuita incluye 3 dashboards personalizados de hasta 50 métricas cada uno por mes. Este usa 10 métricas.
+- **Alarma y SNS:** la capa gratuita incluye 10 alarmas de métricas y 1.000 notificaciones por correo por mes.
 - **Métricas de EC2 (monitoreo básico):** sin costo.
 - **EC2 t3.micro:** cobra por hora mientras está en ejecución.
 
@@ -108,4 +141,4 @@ Al terminar:
 aws cloudformation delete-stack --stack-name monitoreo-servidor-web
 ```
 
-Ese comando borra la VPC, la instancia y el dashboard.
+Ese comando borra la VPC, la instancia, el dashboard, la alarma y el tema de SNS.

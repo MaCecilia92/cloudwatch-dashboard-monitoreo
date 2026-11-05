@@ -231,6 +231,19 @@
           }
         }
       }
+    },
+    {
+      "type": "alarm",
+      "x": 0,
+      "y": 15,
+      "width": 24,
+      "height": 2,
+      "properties": {
+        "title": "Estado de la alarma: CPU mayor a 60 % durante 10 minutos",
+        "alarms": [
+          "arn:aws:cloudwatch:us-east-1:REEMPLAZAR_ID_CUENTA:alarm:servidor-web-cpu-alta"
+        ]
+      }
     }
   ]
 }
